@@ -316,6 +316,25 @@ class Encuesta extends CI_Model{
     return ($data)?$data->mensaje:'No se pudo conectar con la base de datos.';
   }
   
+  /**
+   * Da de Baja claves. Devuelve el numero de claves quitadas, o un mensaje en caso de error.
+   *
+   * @access  public
+   * @param identificador de la materia
+   * @param identificador de la carrera
+   * @param cantidad de claves
+   * @return  string
+   */
+  public function removerClaves($idMateria, $idCarrera, $cantidad){
+    $cantidad = $this->db->escape($cantidad);
+    $idMateria = $this->db->escape($idMateria);
+    $idCarrera = $this->db->escape($idCarrera);
+    $idEncuesta = $this->db->escape($this->idEncuesta);
+    $idFormulario = $this->db->escape($this->idFormulario);
+    $this->db->query("DELETE FROM Claves WHERE idClave IN ( SELECT idClave FROM (SELECT idClave FROM Claves WHERE idMateria=$idMateria AND idCarrera=$idCarrera AND idEncuesta=$idEncuesta AND idFormulario=$idFormulario AND utilizada IS NULL ORDER BY generada DESC LIMIT $cantidad) x) AND idMateria=$idMateria AND idCarrera=$idCarrera AND idEncuesta=$idEncuesta AND idFormulario=$idFormulario AND utilizada IS NULL");
+    return $this->db->affected_rows();
+  }
+  
   
   /**
    * Obtiene el indice de una seccion de docentes para una encuesta de un alumno.

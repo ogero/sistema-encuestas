@@ -1,3 +1,4 @@
 .settings/
+.idea/
 TODO.txt
 db/Datos de pruebas.sql

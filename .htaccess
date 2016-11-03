@@ -1,3 +1,8 @@
 RewriteEngine on 
+
+RewriteRule .* - [E=NOVARY_HTTP_HOST:%{HTTP_HOST}]
+RewriteCond %{ENV:NOVARY_HTTP_HOST} ^www [NC]
+RewriteRule ^(.*)$ http://encuestas.unt.edu.ar/$1 [R=301,L]
+
 RewriteCond $1 !^(index\.php|captcha|css|fonts|js|img|robots\.txt) 
-RewriteRule ^(.*)$ /encuestas/index.php/$1 [L]
+RewriteRule ^(.*)$ /index.php?/$1 [L]

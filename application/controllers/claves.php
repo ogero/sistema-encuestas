@@ -400,6 +400,75 @@ class Claves extends CI_Controller{
     }
     redirect('claves/ver');
   }
+  
+   /*
+   * Remover claves de acceso
+   * POST: idEncuesta, idFormulario, idCarrera, idMateria, cantidad
+   */
+  public function remover(){
+    //verifico si el usuario tiene permisos para continuar
+    if (!$this->ion_auth->logged_in()){
+      $this->session->set_flashdata('resultadoOperacion', 'Debe iniciar sesión para realizar esta operación.');
+      $this->session->set_flashdata('resultadoTipo', ALERT_WARNING);
+      redirect('usuarios/login');
+    }
+    elseif (!$this->ion_auth->in_group(array('admin','docentes'))){
+      $this->session->set_flashdata('resultadoOperacion', 'No tiene permisos para realizar esta operación.');
+      $this->session->set_flashdata('resultadoTipo', ALERT_WARNING);
+      redirect('claves/ver');
+    }
+    $this->load->model('Encuesta');
+    $this->load->model('Materia');
+    $this->load->model('Carrera');
+    $this->load->model('Gestor_materias','gm');
+    $this->load->model('Gestor_encuestas','ge');
+    $this->load->model('Gestor_carreras','gc');
+    //chequeo parámetros de entrada
+    $this->form_validation->set_rules('idEncuesta','Encuesta','is_natural_no_zero|required');
+    $this->form_validation->set_rules('idFormulario','Formulario','is_natural_no_zero|required');
+    $this->form_validation->set_rules('idCarrera','Carrera','is_natural_no_zero|required');
+    $this->form_validation->set_rules('idMateria','Materia','is_natural_no_zero|required');
+    $this->form_validation->set_rules('cantidad','Cantidad','is_natural_no_zero');    
+    if($this->form_validation->run()){
+      $idMateria = (int)$this->input->post('idMateria');
+      $idCarrera = (int)$this->input->post('idCarrera');
+      $idEncuesta = (int)$this->input->post('idEncuesta');
+      $idFormulario = (int)$this->input->post('idFormulario');
+      $cantidad = (int)$this->input->post('cantidad');
+      $materia = $this->gm->dame($idMateria);
+      $carrera = $this->gc->dame($idCarrera);
+      $encuesta = $this->ge->dame($idEncuesta, $idFormulario);
+      if (!$materia || !$carrera || !$encuesta){
+        $this->session->set_flashdata('resultadoOperacion', "Los datos ingresados son inválidos.");
+        $this->session->set_flashdata('resultadoTipo', ALERT_ERROR); 
+        redirect('claves/ver');
+      }
+      //verifico que el usuario es un organizador
+      if ($this->ion_auth->in_group('docentes') && $carrera->idOrganizador != $this->data['usuarioLogin']->id){
+        $this->session->set_flashdata('resultadoOperacion', 'No tiene permisos para realizar esta operación. Solamente el docente designado puede remover claves de acceso.');
+        $this->session->set_flashdata('resultadoTipo', ALERT_WARNING);
+        redirect('claves/ver');
+      }
+      
+      $cnt = $encuesta->removerClaves($idMateria, $idCarrera, $cantidad);
+      
+      if ($cnt == $cantidad){
+        $this->session->set_flashdata('resultadoOperacion', "La operación se realizó con éxito. Se removieron $cnt claves.");
+        $this->session->set_flashdata('resultadoTipo', ALERT_SUCCESS);
+        $this->ver();
+        return;
+      }
+      elseif($cnt==0) {
+        $this->session->set_flashdata('resultadoOperacion', "Se produjo un error. No se removieron claves.");
+        $this->session->set_flashdata('resultadoTipo', ALERT_ERROR); 
+      }
+      else{
+        $this->session->set_flashdata('resultadoOperacion', "La operación se realizó parcialmente. Se removieron $cnt claves.");
+        $this->session->set_flashdata('resultadoTipo', ALERT_WARNING);
+      }
+    }
+    redirect('claves/ver');
+  }
    
   /*
    * Verificar la clave de acceso dada por el alumno

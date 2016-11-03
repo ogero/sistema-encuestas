@@ -29,7 +29,6 @@ CREATE TABLE Carreras(
     idCarrera             SMALLINT UNSIGNED  NOT NULL,
     idDepartamento        SMALLINT UNSIGNED  NOT NULL,
     idDirectorCarrera     INT UNSIGNED,
-	idOrganizador         INT UNSIGNED,
     nombre                VARCHAR(60)    NOT NULL,
     plan                  SMALLINT UNSIGNED  NOT NULL,
     publicarInformes      CHAR(1)        DEFAULT 'N' NOT NULL,
@@ -80,6 +79,7 @@ CREATE TABLE Departamentos(
 --
 
 CREATE TABLE Devoluciones(
+    idDevolucion    INT UNSIGNED  NOT NULL,
     idMateria       SMALLINT UNSIGNED  NOT NULL,
     idEncuesta      INT UNSIGNED  NOT NULL,
     idFormulario    INT UNSIGNED  NOT NULL,
@@ -89,7 +89,7 @@ CREATE TABLE Devoluciones(
     alumnos         TEXT,
     docentes        TEXT,
     mejoras         TEXT,
-    PRIMARY KEY (idMateria, idEncuesta, idFormulario)
+    PRIMARY KEY (idDevolucion, idMateria, idEncuesta, idFormulario)
 )ENGINE=INNODB
 ;
 
@@ -427,10 +427,6 @@ ALTER TABLE Carreras ADD CONSTRAINT RefDepartamentos65
     REFERENCES Departamentos(idDepartamento)
 ;
 
-ALTER TABLE Carreras ADD CONSTRAINT RefUsuarios812
-    FOREIGN KEY (idOrganizador)
-    REFERENCES Usuarios(id)
-;
 
 -- 
 -- TABLE: Claves 
@@ -632,15 +628,17 @@ ALTER TABLE Usuarios_Grupos ADD CONSTRAINT `RefUsuarios78`
 INSERT INTO Grupos VALUES
 ('1', 'admin', 'Administradores'),
 ('2', 'decanos', 'Decanos'),
-('3', 'docentes', 'Docentes'),
-('4', 'alumnos', 'Alumnos');
+('3', 'jefes_departamentos', 'Jefes de departamentos'),
+('4', 'directores', 'Directores de carrera'),
+('5', 'docentes', 'Docentes'),
+('6', 'alumnos', 'Alumnos');
 
 INSERT INTO `Usuarios` (`id`,`ip_address`,`username`,`password`,`salt`,`email`,`activation_code`,`forgotten_password_code`,`forgotten_password_time`,`remember_code`,`created_on`,`last_login`,`active`,`nombre`,`apellido`) VALUES 
  (1,0x7F000001,'admin','59beecdf7fc966e2f17fd8f65a4a9aeb09d4a3d4','9462e8eee0','','','b30b117fb39e7037795729d0c623b98262697e80',1359506278,NULL,1,1359522422,1,'admin','admin');
 
 INSERT INTO `Usuarios_Grupos` (`id`,`id_usuario`,`id_grupo`) VALUES 
  (1,1,1);
-
+ 
 INSERT INTO `Tipo_Pregunta` (`idTipo`,`tipo`) VALUES 
  ('N','Numérica'),
  ('S','Selección simple'),

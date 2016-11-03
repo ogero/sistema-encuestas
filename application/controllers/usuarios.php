@@ -716,12 +716,16 @@ class Usuarios extends CI_Controller{
    */
   private function _crear_captcha($ancho, $alto){
     $this->load->helper('captcha');
+    $pool = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $word = '';
+    for ($i = 0; $i < 6; $i++) $word .= substr($pool, mt_rand(0, strlen($pool) -1), 1);
     $vals = array(
       'img_path'   => './captcha/',
       'img_url'  => base_url('captcha').'/',
       'font_path'  => $this->config->config['captchaFont'],
       'img_width'  => $ancho,
       'img_height' => $alto,
+      'word' => $word,
       'expiration' => $this->config->config['captchaExpiration']
     );
     $cap = create_captcha($vals);

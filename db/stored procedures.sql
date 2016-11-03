@@ -1,30 +1,3 @@
-DROP PROCEDURE IF EXISTS `esp_claves_anterior_posterior`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_claves_anterior_posterior`(
-	pidClave INT UNSIGNED,
-	pidMateria SMALLINT UNSIGNED,
-	pidCarrera SMALLINT UNSIGNED,
-	pidEncuesta INT UNSIGNED,
-	pidFormulario INT UNSIGNED)
-BEGIN
-    SELECT	MAX(idClave) as idClave
-	FROM	Claves
-	WHERE	idMateria = pidMateria AND idCarrera = pidCarrera AND 
-			idEncuesta = pidEncuesta AND idFormulario = pidFormulario AND 
-			idClave < pidClave AND utilizada IS NOT NULL
-	UNION
-	SELECT	MIN(idClave) as idClave
-	FROM	Claves
-	WHERE	idMateria = pidMateria AND idCarrera = pidCarrera AND
-			idEncuesta = pidEncuesta AND idFormulario = pidFormulario AND
-			idClave > pidClave AND utilizada IS NOT NULL;
-END $$
-
-DELIMITER ;
-
-
 DROP PROCEDURE IF EXISTS `esp_signar_importancia`;
 
 DELIMITER $$
@@ -67,7 +40,7 @@ DELIMITER $$
 CREATE PROCEDURE `esp_listar_carreras_materia`(
 	pidMateria SMALLINT UNSIGNED)
 BEGIN
-	SELECT  C.idCarrera, C.idDepartamento, C.idDirectorCarrera, C.idOrganizador, C.nombre, C.plan, 
+	SELECT  C.idCarrera, C.idDepartamento, C.idDirectorCarrera, C.nombre, C.plan, 
 			C.publicarInformes, C.publicarHistoricos
     FROM    Carreras C INNER JOIN Materias_Carreras MC ON C.idCarrera = MC.idCarrera
 	WHERE	MC.idMateria = pidMateria
@@ -299,14 +272,15 @@ DROP PROCEDURE IF EXISTS `esp_dame_devolucion`;
 DELIMITER $$
 
 CREATE PROCEDURE `esp_dame_devolucion`(
+	pidDevolucion INT UNSIGNED,
 	pidMateria SMALLINT UNSIGNED,
 	pidEncuesta INT UNSIGNED,
 	pidFormulario INT UNSIGNED)
 BEGIN
-    SELECT  idMateria, idEncuesta, idFormulario, fecha,
+    SELECT  idDevolucion, idMateria, idEncuesta, idFormulario, fecha,
 			fortalezas, debilidades, alumnos, docentes, mejoras
     FROM	Devoluciones
-	WHERE 	idMateria = pidMateria AND 
+	WHERE 	idDevolucion = pidDevolucion AND idMateria = pidMateria AND 
 			idEncuesta = pidEncuesta AND idFormulario = pidFormulario;
 END $$
 
@@ -324,7 +298,7 @@ CREATE PROCEDURE `esp_listar_devoluciones_carrera`(
     pPagLongitud INT UNSIGNED)
 BEGIN
     SET @qry = '
-    SELECT  D.idMateria, D.idEncuesta, D.idFormulario, D.fecha,
+    SELECT  D.idDevolucion, D.idMateria, D.idEncuesta, D.idFormulario, D.fecha,
 			D.fortalezas, D.debilidades, D.alumnos, D.docentes, D.mejoras
     FROM	Devoluciones D INNER JOIN Materias_Carreras MC ON D.idMateria = MC.idMateria
 	WHERE 	MC.idCarrera = ?
@@ -372,6 +346,7 @@ CREATE PROCEDURE `esp_alta_devolucion`(
     pdocentes TEXT,
     pmejoras TEXT)
 BEGIN
+    DECLARE id INT UNSIGNED;
     DECLARE mensaje VARCHAR(100);
     DECLARE err BOOLEAN DEFAULT FALSE;
     DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET err=TRUE;       
@@ -390,18 +365,22 @@ BEGIN
             SET mensaje = 'No se encontró la Materia correspondiente.';
             ROLLBACK;
 		ELSE
-            DELETE FROM Devoluciones
-			WHERE idMateria=pidMateria AND idEncuesta=pidEncuesta AND idFormulario=pidFormulario;
+            SET id = (  
+                SELECT COALESCE(MAX(idDevolucion),0)+1 
+                FROM    Devoluciones 
+                WHERE   idMateria = pidMateria AND
+                        idEncuesta = pidEncuesta AND
+                        idFormulario = pidFormulario FOR UPDATE);
             INSERT INTO Devoluciones
-                (idMateria, idEncuesta, idFormulario, fecha, 
+                (idDevolucion, idMateria, idEncuesta, idFormulario, fecha, 
                 fortalezas, debilidades, alumnos, docentes, mejoras)
-            VALUES (pidMateria, pidEncuesta, pidFormulario, NOW(), 
+            VALUES (id, pidMateria, pidEncuesta, pidFormulario, NOW(), 
                 pfortalezas, pdebilidades, palumnos, pdocentes, pmejoras);
             IF err THEN
                 SET mensaje = 'Error inesperado al intentar acceder a la base de datos.';
                 ROLLBACK;
             ELSE 
-                SET mensaje = 'ok';
+                SET mensaje = id;
                 COMMIT;
             END IF;
         END IF;
@@ -549,33 +528,6 @@ END $$
 
 DELIMITER ;
 
-
-DROP PROCEDURE IF EXISTS `esp_listar_materias_departamento`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_listar_materias_departamento`(
-	pidDepartamento SMALLINT UNSIGNED,
-	pPagInicio INT UNSIGNED,
-    pPagLongitud INT UNSIGNED)
-BEGIN
-	SET @qry = '
-    SELECT  C.idCarrera, M.idMateria, M.nombre, M.codigo, 
-			M.publicarInformes, M.publicarHistoricos, M.publicarDevoluciones
-    FROM    Materias M INNER JOIN Materias_Carreras MC ON M.idMateria = MC.idMateria
-			INNER JOIN Carreras C ON MC.idCarrera = C.idCarrera
-	WHERE	C.idDepartamento = ?
-    ORDER BY M.nombre
-	LIMIT ?,?';
-    PREPARE stmt FROM  @qry;
-	SET @c = pidDepartamento;
-    SET @a = pPagInicio;
-    SET @b = pPagLongitud;
-    EXECUTE stmt USING @c, @a, @b;
-    DEALLOCATE PREPARE stmt;
-END $$
-
-DELIMITER ;
 
 
 DROP PROCEDURE IF EXISTS `esp_cantidad_materias`;
@@ -769,20 +721,20 @@ DELIMITER ;
 
 
 
-DROP PROCEDURE IF EXISTS `esp_listar_carreras_departamento`;
+-- DROP PROCEDURE IF EXISTS `esp_listar_carreras_departamento`;
 
-DELIMITER $$
+-- DELIMITER $$
 
-CREATE PROCEDURE `esp_listar_carreras_departamento`(
-    pidDepartamento SMALLINT UNSIGNED)
-BEGIN
-    SELECT  idDepartamento, idCarrera, idDirectorCarrera, idOrganizador, nombre, plan, publicarInformes, publicarHistoricos
-    FROM    Carreras
-    WHERE   idDepartamento = pidDepartamento
-    ORDER BY nombre, plan DESC;
-END $$
+-- CREATE PROCEDURE `esp_listar_carreras_departamento`(
+--     pidDepartamento SMALLINT UNSIGNED)
+-- BEGIN
+--     SELECT  idDepartamento, idCarrera, idDirectorCarrera, nombre, plan, publicarInformes, publicarHistoricos
+--     FROM    Carreras
+--     WHERE   idDepartamento = pidDepartamento
+--     ORDER BY nombre, plan DESC;
+-- END $$
 
-DELIMITER ;
+-- DELIMITER ;
 
 
 
@@ -970,12 +922,12 @@ CREATE PROCEDURE `esp_listar_items_seccion_carrera`(
 	pidCarrera SMALLINT UNSIGNED)
 BEGIN
     START TRANSACTION;
-    SELECT  I.idItem, I.idSeccion, I.idFormulario, P.idPregunta, P.texto, P.descripcion, 
+    SELECT  I.idItem, I.idSeccion, I.idFormulario, P.idPregunta, I.idCarrera, P.texto, P.descripcion, 
 			P.creacion, P.tipo, modoIndice, limiteInferior, limiteSuperior, paso, unidad,
-            IC.importancia
+            I.posicion, IC.importancia
     FROM    Items I INNER JOIN Preguntas P ON I.idPregunta = P.idPregunta 
             LEFT JOIN Items_Carreras IC ON I.idSeccion = IC.idSeccion AND 
-                I.idFormulario = IC.idFormulario AND I.idItem = IC.idItem AND IC.idCarrera = pidCarrera
+                I.idFormulario = IC.idFormulario AND I.idItem = IC.idItem
     WHERE   I.idSeccion = pidSeccion AND I.idFormulario = pidFormulario AND (I.idCarrera IS NULL OR I.idCarrera = pidCarrera)
     ORDER BY I.idCarrera, I.posicion; -- primero los items comunes y despues las que agregan las carreras
     COMMIT;
@@ -1039,22 +991,6 @@ END $$
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS `esp_existe_materia_carrera`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_existe_materia_carrera`(
-    pidMateria SMALLINT UNSIGNED,
-	pidCarrera SMALLINT UNSIGNED)
-BEGIN
-    SELECT	idMateria, idCarrera 
-	FROM	Materias_Carreras
-	WHERE	idMateria=pidMateria AND idCarrera=pidCarrera;
-END $$
-
-DELIMITER ;
-
-
 
 DROP PROCEDURE IF EXISTS `esp_dame_carrera`;
 
@@ -1063,7 +999,7 @@ DELIMITER $$
 CREATE PROCEDURE `esp_dame_carrera`(
     pidCarrera SMALLINT UNSIGNED)
 BEGIN
-    SELECT	idCarrera, idDepartamento, idDirectorCarrera, idOrganizador, nombre, plan,
+    SELECT	idCarrera, idDepartamento, idDirectorCarrera, nombre, plan,
 			publicarInformes, publicarHistoricos
     FROM Carreras
     WHERE idCarrera = pidCarrera;
@@ -1211,7 +1147,6 @@ DELIMITER $$
 CREATE PROCEDURE `esp_alta_carrera`(
     pidDepartamento SMALLINT UNSIGNED,
 	pidDirectorCarrera INT UNSIGNED,
-	pidOrganizador INT UNSIGNED,
     pnombre VARCHAR(60),
     pplan SMALLINT UNSIGNED,
 	ppublicarInformes CHAR(1),
@@ -1234,9 +1169,6 @@ BEGIN
         ELSEIF pidDirectorCarrera IS NOT NULL AND NOT EXISTS(SELECT id FROM Usuarios WHERE id = pidDirectorCarrera LIMIT 1) THEN
             SET mensaje = 'No existe el director de carrera seleccionado.';
             ROLLBACK;
-        ELSEIF pidOrganizador IS NOT NULL AND NOT EXISTS(SELECT id FROM Usuarios WHERE id = pidOrganizador LIMIT 1) THEN
-            SET mensaje = 'No existe el usuario para el rol de organizador seleccionado.';
-            ROLLBACK;
         ELSEIF EXISTS(  SELECT nombre FROM Carreras 
                         WHERE nombre = pnombre AND plan=pplan LIMIT 1) THEN
             SET mensaje = CONCAT('Ya existe una carrera del plan ', pplan,' que se llama ', pnombre, '.');
@@ -1246,8 +1178,8 @@ BEGIN
                 SELECT COALESCE(MAX(idCarrera),0)+1 
                 FROM    Carreras FOR UPDATE);
             INSERT INTO Carreras 
-                (idCarrera, idDepartamento, idDirectorCarrera, idOrganizador, nombre, plan, publicarInformes, publicarHistoricos)
-            VALUES (nid, pidDepartamento, pidDirectorCarrera, pidOrganizador, pnombre, pplan, ppublicarInformes, ppublicarHistoricos);
+                (idCarrera, idDepartamento, idDirectorCarrera, nombre, plan, publicarInformes, publicarHistoricos)
+            VALUES (nid, pidDepartamento, pidDirectorCarrera, pnombre, pplan, ppublicarInformes, ppublicarHistoricos);
             IF err THEN
                 SET mensaje = 'Error inesperado al intentar acceder a la base de datos.';
                 ROLLBACK;
@@ -1312,7 +1244,6 @@ CREATE PROCEDURE `esp_modificar_carrera`(
     pidCarrera SMALLINT UNSIGNED,
     pidDepartamento SMALLINT UNSIGNED,
 	pidDirectorCarrera INT UNSIGNED,
-	pidOrganizador INT UNSIGNED,
     pnombre VARCHAR(60),
     pplan SMALLINT UNSIGNED,
 	ppublicarInformes CHAR(1),
@@ -1337,12 +1268,9 @@ BEGIN
         ELSEIF pidDirectorCarrera IS NOT NULL AND NOT EXISTS( SELECT id FROM Usuarios WHERE id = pidDirectorCarrera LIMIT 1) THEN
             SET mensaje = 'No existe el director de carreras seleccionado.';
             ROLLBACK;
-        ELSEIF pidOrganizador IS NOT NULL AND NOT EXISTS(SELECT id FROM Usuarios WHERE id = pidOrganizador LIMIT 1) THEN
-            SET mensaje = 'No existe el usuario para el rol de organizador seleccionado.';
-            ROLLBACK;
         ELSE    
             UPDATE Carreras 
-            SET idDepartamento=pidDepartamento, idDirectorCarrera=pidDirectorCarrera, idOrganizador=pidOrganizador, nombre = pnombre, 
+            SET idDepartamento=pidDepartamento, idDirectorCarrera=pidDirectorCarrera, nombre = pnombre, 
 				plan = pplan, publicarInformes=ppublicarInformes, publicarHistoricos=ppublicarHistoricos
             WHERE idCarrera = pidCarrera;
             IF err THEN
@@ -1370,7 +1298,7 @@ CREATE PROCEDURE `esp_listar_carreras`(
     pPagLongitud INT UNSIGNED)
 BEGIN
     SET @qry = '
-    SELECT  idCarrera, idDepartamento, idDirectorCarrera, idOrganizador, nombre, plan,
+    SELECT  idCarrera, idDepartamento, idDirectorCarrera, nombre, plan,
 			publicarInformes, publicarHistoricos
     FROM    Carreras
     ORDER BY nombre, plan DESC
@@ -1486,7 +1414,7 @@ CREATE PROCEDURE `esp_respuesta_pregunta_clave`(
     pidEncuesta INT UNSIGNED,
     pidFormulario INT UNSIGNED)
 BEGIN
-	SELECT	R.opcion, IF(P.tipo IN ('T','X'), R.texto, IF(P.tipo='N',P.limiteInferior+P.paso*(R.opcion-1),O.texto)) AS texto
+	SELECT	R.opcion, IF(P.tipo='N',P.limiteInferior+P.paso*(R.opcion-1),O.texto) AS texto
 	FROM 	Respuestas R 
 			INNER JOIN Preguntas P ON P.idPregunta = R.idPregunta
 			LEFT JOIN Opciones O ON O.idPregunta = R.idPregunta AND O.idOpcion = R.opcion
@@ -1618,7 +1546,6 @@ DELIMITER $$
 
 CREATE PROCEDURE `esp_textos_pregunta_materia`(
     pidPregunta INT UNSIGNED,
-	pidDocente INT UNSIGNED,
     pidMateria SMALLINT UNSIGNED,
     pidCarrera SMALLINT UNSIGNED,
     pidEncuesta INT UNSIGNED,
@@ -1626,8 +1553,8 @@ CREATE PROCEDURE `esp_textos_pregunta_materia`(
 BEGIN
 	SELECT  texto
 	FROM    Respuestas R
-	WHERE   R.idPregunta = pidPregunta AND (R.idDocente = pidDocente OR R.idDocente IS NULL) AND
-			R.idMateria = pidMateria AND R.idCarrera = pidCarrera AND R.idEncuesta = pidEncuesta AND
+	WHERE   R.idPregunta = pidPregunta AND R.idMateria = pidMateria AND 
+			R.idCarrera = pidCarrera AND R.idEncuesta = pidEncuesta AND
 			R.idFormulario = pidFormulario AND texto IS NOT NULL;
 END $$
 
@@ -1759,7 +1686,7 @@ CREATE PROCEDURE `esp_buscar_usuarios` (
 	pnombre VARCHAR(40))
 BEGIN
 	IF COALESCE(pnombre,'') != '' THEN
-		SELECT	id, apellido, nombre, username, last_login, active
+		SELECT	id, apellido, nombre, username
 		FROM	Usuarios
 		WHERE	active = 1 AND CONCAT(apellido,' ',nombre,' ',apellido) like CONCAT('%',pnombre,'%')
 		ORDER BY apellido, nombre
@@ -1779,7 +1706,7 @@ CREATE PROCEDURE `esp_buscar_carreras`(
 	pnombre VARCHAR(60))
 BEGIN
 	IF COALESCE(pnombre,'') != '' THEN
-		SELECT	idCarrera, idDepartamento, idDirectorCarrera, idOrganizador, nombre, plan,
+		SELECT	idCarrera, idDepartamento, idDirectorCarrera, nombre, plan,
 				publicarInformes, publicarHistoricos
 		FROM	Carreras
 		WHERE	nombre like CONCAT('%',pnombre,'%')
@@ -1905,7 +1832,6 @@ DELIMITER $$
 CREATE PROCEDURE `esp_asociar_docente_materia`(
     pidDocente INT UNSIGNED,
 	pidMateria SMALLINT UNSIGNED,
-	ptipoAcceso CHAR(1),
 	pordenFormulario TINYINT UNSIGNED,
 	pcargo VARCHAR(40))
 BEGIN
@@ -1915,10 +1841,7 @@ BEGIN
     DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET err=TRUE;       
     
     START TRANSACTION;
-	IF NOT ptipoAcceso IN ('D','J') THEN
-        SET mensaje = 'El tipo de acceso docente es incorrecto.';
-        ROLLBACK;
-	ELSEIF NOT EXISTS(SELECT idMateria FROM Materias WHERE idMateria = pidMateria LIMIT 1) THEN
+    IF NOT EXISTS(SELECT idMateria FROM Materias WHERE idMateria = pidMateria LIMIT 1) THEN
         SET mensaje = 'No se encuentra una materia seleccionada.';
         ROLLBACK;
     ELSEIF NOT EXISTS(SELECT id FROM Usuarios WHERE id = pidDocente LIMIT 1) THEN
@@ -1940,8 +1863,8 @@ BEGIN
 		SET ordenFormulario = ordenFormulario+1
 		WHERE idMateria=pidMateria AND ordenFormulario >= pordenFormulario;
         INSERT INTO Docentes_Materias
-            (idDocente, idMateria, tipoAcceso, ordenFormulario, cargo)
-        VALUES (pidDocente, pidMateria, ptipoAcceso, pordenFormulario, pcargo);
+            (idDocente, idMateria, ordenFormulario, cargo)
+        VALUES (pidDocente, pidMateria, pordenFormulario, pcargo);
         IF err THEN
             SET mensaje = 'Error inesperado al intentar acceder a la base de datos.';
             ROLLBACK;
@@ -2347,7 +2270,7 @@ BEGIN
     FROM    Claves
 	WHERE	idMateria = pidMateria AND idCarrera = pidCarrera AND idEncuesta = pidEncuesta AND 
 			idFormulario = pidFormulario AND utilizada IS NOT NULL
-    ORDER BY idClave;
+    ORDER BY generada DESC, utilizada DESC;
 END $$
 
 DELIMITER ;
@@ -2456,7 +2379,7 @@ BEGIN
 					INNER JOIN Preguntas P ON
 						P.idPregunta = R.idPregunta
 					INNER JOIN Items I ON
-						I.idPregunta = P.idPregunta AND I.idFormulario=R.idFormulario
+						I.idPregunta = P.idPregunta
 					LEFT JOIN Items_Carreras IC ON
 						IC.idCarrera = R.idCarrera AND IC.idSeccion = I.idSeccion AND
 						IC.idFormulario = I.idFormulario AND IC.idItem = I.idItem
@@ -2505,7 +2428,7 @@ BEGIN
 					INNER JOIN Preguntas P ON
 						P.idPregunta = R.idPregunta
 					INNER JOIN Items I ON
-						I.idPregunta = P.idPregunta AND I.idFormulario=R.idFormulario
+						I.idPregunta = P.idPregunta
 					LEFT JOIN Items_Carreras IC ON
 						IC.idCarrera = R.idCarrera AND IC.idSeccion = I.idSeccion AND
 						IC.idFormulario = I.idFormulario AND IC.idItem = I.idItem
@@ -2545,7 +2468,7 @@ BEGIN
 	DECLARE cur CURSOR FOR 
 		SELECT	idSeccion
 		FROM	Secciones
-		WHERE	idFormulario = pidFormulario AND tipo != 'A';  
+		WHERE	idFormulario = pidFormulario;  
 	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
 	-- por cada clave de cada materia tomar el indice para calcular el indice promedio
 	OPEN cur;
@@ -2680,87 +2603,6 @@ END $$
 DELIMITER ;
 
 
-DROP PROCEDURE IF EXISTS `esp_indice_global_departamento`;
-
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_indice_global_departamento`(
-	pidDepartamento SMALLINT UNSIGNED,
-	pidEncuesta INT UNSIGNED,
-	pidFormulario INT UNSIGNED)
-BEGIN
-	DECLARE done INT DEFAULT 0;
-	DECLARE indice FLOAT;
-	DECLARE pidClave INT  UNSIGNED;
-	DECLARE pidMateria INT  UNSIGNED;
-	DECLARE s FLOAT DEFAULT 0;
-	DECLARE n INT DEFAULT 0;
-	DECLARE cur CURSOR FOR 
-		SELECT 	C.idClave, C.idMateria
-		FROM 	Claves C INNER JOIN Carreras CA ON C.idCarrera = CA.idCarrera
-		WHERE	CA.idDepartamento = pidDepartamento AND
-				C.idEncuesta = pidEncuesta AND C.idFormulario = pidFormulario AND C.utilizada IS NOT NULL;  
-	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
-	-- por cada clave de cada materia tomar el indice para calcular el indice promedio
-	OPEN cur;
-	REPEAT
-		FETCH cur INTO pidClave, pidMateria;
-		IF NOT done THEN
-			CALL esp_indice_global(pidClave, pidMateria, pidCarrera, pidEncuesta, pidFormulario, indice);
-			IF indice IS NOT NULL THEN
-				SET s = s + indice;
-				SET n = n + 1;
-			END IF;
-		END IF;
-	UNTIL done END REPEAT;
-	CLOSE cur;
-	-- devolver el indice promedio
-	SELECT s/n AS indice;
-END $$
-
-DELIMITER ;
-
-
-DROP PROCEDURE IF EXISTS `esp_indice_global_facultad`;
-
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_indice_global_facultad`(
-	pidEncuesta INT UNSIGNED,
-	pidFormulario INT UNSIGNED)
-BEGIN
-	DECLARE done INT DEFAULT 0;
-	DECLARE indice FLOAT;
-	DECLARE pidClave INT  UNSIGNED;
-	DECLARE pidMateria INT  UNSIGNED;
-	DECLARE s FLOAT DEFAULT 0;
-	DECLARE n INT DEFAULT 0;
-	DECLARE cur CURSOR FOR 
-		SELECT 	C.idClave, C.idMateria
-		FROM 	Claves C
-		WHERE	C.idEncuesta = pidEncuesta AND C.idFormulario = pidFormulario AND C.utilizada IS NOT NULL;  
-	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
-	-- por cada clave de cada materia tomar el indice para calcular el indice promedio
-	OPEN cur;
-	REPEAT
-		FETCH cur INTO pidClave, pidMateria;
-		IF NOT done THEN
-			CALL esp_indice_global(pidClave, pidMateria, pidCarrera, pidEncuesta, pidFormulario, indice);
-			IF indice IS NOT NULL THEN
-				SET s = s + indice;
-				SET n = n + 1;
-			END IF;
-		END IF;
-	UNTIL done END REPEAT;
-	CLOSE cur;
-	-- devolver el indice promedio
-	SELECT s/n AS indice;
-END $$
-
-DELIMITER ;
-
 
 DROP PROCEDURE IF EXISTS `esp_indice_global_materia`;
 
@@ -2846,91 +2688,6 @@ BEGIN
 		FROM 	Claves
 		WHERE	idCarrera = pidCarrera AND
 				idEncuesta = pidEncuesta AND idFormulario = pidFormulario AND utilizada IS NOT NULL;  
-	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
-	-- por cada clave de la encuesta, calcular el indice para calcular el indice promedio
-	OPEN cur;
-	REPEAT
-		FETCH cur INTO pidClave, pidMateria;
-		IF NOT done THEN
-			CALL esp_indice_seccion(pidClave, pidMateria, pidCarrera, 
-									pidEncuesta, pidFormulario, pidSeccion, 
-									indice);
-			IF indice IS NOT NULL THEN
-				SET s = s + indice;
-				SET n = n + 1;
-			END IF;
-		END IF;
-	UNTIL done END REPEAT;
-	CLOSE cur;
-	-- devolver el indice promedio
-	SELECT s/n AS indice;
-END $$
-
-DELIMITER ;
-
-
-DROP PROCEDURE IF EXISTS `esp_indice_seccion_departamento`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_indice_seccion_departamento`(
-	pidDepartamento SMALLINT UNSIGNED,
-	pidEncuesta INT UNSIGNED,
-	pidFormulario INT UNSIGNED,
-	pidSeccion INT UNSIGNED)
-BEGIN
-	DECLARE done INT DEFAULT 0;
-	DECLARE indice FLOAT;
-	DECLARE pidClave INT  UNSIGNED;
-	DECLARE pidMateria SMALLINT UNSIGNED;
-	DECLARE s FLOAT DEFAULT 0;
-	DECLARE n INT DEFAULT 0;
-	DECLARE cur CURSOR FOR 
-		SELECT 	C.idClave, C.idMateria
-		FROM 	Claves C INNER JOIN Carreras CA ON C.idCarrera = CA.idCarrera
-		WHERE	CA.idDepartamento = pidDepartamento AND
-				C.idEncuesta = pidEncuesta AND C.idFormulario = pidFormulario AND C.utilizada IS NOT NULL;  
-	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
-	-- por cada clave de la encuesta, calcular el indice para calcular el indice promedio
-	OPEN cur;
-	REPEAT
-		FETCH cur INTO pidClave, pidMateria;
-		IF NOT done THEN
-			CALL esp_indice_seccion(pidClave, pidMateria, pidCarrera, 
-									pidEncuesta, pidFormulario, pidSeccion, 
-									indice);
-			IF indice IS NOT NULL THEN
-				SET s = s + indice;
-				SET n = n + 1;
-			END IF;
-		END IF;
-	UNTIL done END REPEAT;
-	CLOSE cur;
-	-- devolver el indice promedio
-	SELECT s/n AS indice;
-END $$
-
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS `esp_indice_seccion_facultad`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `esp_indice_seccion_facultad`(
-	pidEncuesta INT UNSIGNED,
-	pidFormulario INT UNSIGNED,
-	pidSeccion INT UNSIGNED)
-BEGIN
-	DECLARE done INT DEFAULT 0;
-	DECLARE indice FLOAT;
-	DECLARE pidClave INT  UNSIGNED;
-	DECLARE pidMateria SMALLINT UNSIGNED;
-	DECLARE s FLOAT DEFAULT 0;
-	DECLARE n INT DEFAULT 0;
-	DECLARE cur CURSOR FOR 
-		SELECT 	C.idClave, C.idMateria
-		FROM 	Claves C
-		WHERE	C.idEncuesta = pidEncuesta AND C.idFormulario = pidFormulario AND C.utilizada IS NOT NULL;  
 	DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done = 1;
 	-- por cada clave de la encuesta, calcular el indice para calcular el indice promedio
 	OPEN cur;
@@ -3136,9 +2893,6 @@ BEGIN
     ELSEIF EXISTS(SELECT idDirectorCarrera FROM Carreras WHERE idDirectorCarrera = pid LIMIT 1) THEN
         SET mensaje = 'No se puede eliminar, existe una carrera que lo tiene como Director de Carrera.';
         ROLLBACK;
-    ELSEIF EXISTS(SELECT idOrganizador FROM Carreras WHERE idOrganizador = pid LIMIT 1) THEN
-        SET mensaje = 'No se puede eliminar, existe una carrera que lo tiene como Organizador.';
-        ROLLBACK;
     ELSE
 		SET pidImagen = (SELECT idImagen FROM Usuarios WHERE id=pid LIMIT 1);
 		DELETE FROM Usuarios_Grupos
@@ -3306,7 +3060,7 @@ BEGIN
     
     IF COALESCE(ptexto,'') = '' THEN
         SET mensaje = 'El texto de la sección no puede ser vacío.';
-    ELSEIF NOT ptipo IN ('N', 'D', 'A') THEN
+    ELSEIF NOT ptipo IN ('N', 'D') THEN
         SET mensaje = 'El tipo de sección es incorrecto.';
     ELSE
         START TRANSACTION;    
@@ -3370,7 +3124,7 @@ BEGIN
 		SET nid = (  
 			SELECT COALESCE(MAX(idItem),0)+1 
 			FROM    Items
-			WHERE   idSeccion=pidSeccion AND idFormulario=pidFormulario FOR UPDATE);
+			WHERE   idSeccion=pidSeccion AND idFormulario=pidFormulario AND idPregunta=pidPregunta FOR UPDATE);
 		INSERT INTO Items
 			(idItem, idSeccion, idFormulario, idPregunta, idCarrera, posicion)
 		VALUES (nid, pidSeccion, pidFormulario, pidPregunta, pidCarrera, pposicion);
@@ -3787,7 +3541,7 @@ DELIMITER ;
 -- CREATE PROCEDURE `esp_listar_carreras_docente`(
 -- 	pid INT UNSIGNED)
 -- BEGIN
---     SELECT  DISTINCT C.idCarrera, C.idDepartamento, C.idDirectorCarrera, C.idOrganizador, C.nombre, C.plan,
+--     SELECT  DISTINCT C.idCarrera, C.idDepartamento, C.idDirectorCarrera, C.nombre, C.plan,
 -- 			C.publicarInformes, C.publicarHistoricos
 --     FROM    Carreras C 
 -- 			INNER JOIN Materias_Carreras MC ON MC.idCarrera = C.idCarrera

@@ -143,7 +143,7 @@ $config['email_forgot_password'] = 'olvido_contrasena.tpl.php';
  | -------------------------------------------------------------------------
  | Default: new_password.tpl.php
  */
-$config['email_forgot_password_complete'] = 'nueva_contraseña.tpl.php';
+$config['email_forgot_password_complete'] = 'nueva_contrasena.tpl.php';
 
 /*
  | -------------------------------------------------------------------------

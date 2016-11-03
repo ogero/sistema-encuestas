@@ -38,6 +38,7 @@
           <p>Cantidad de claves utilizadas: <?php echo $claves['utilizadas']?></p>
           
           <button class="generar btn btn-primary">Generar Claves de Acceso</button>
+          <button class="remover btn btn-primary">Remover Claves de Acceso</button>
           <form id="verClaves" class="form-horizontal" action="<?php echo site_url('claves/listar')?>" method="post">
             <input type="hidden" name="idEncuesta" value="<?php echo $encuesta->idEncuesta?>" />
             <input type="hidden" name="idFormulario" value="<?php echo $encuesta->idFormulario?>" />
@@ -82,6 +83,32 @@
       </div>
     </form>
   </div>
+  <div id="modalRemover" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-header">
+      <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+      <h3 id="myModalLabel">Remover Claves de Acceso</h3>
+    </div>
+    <form class="form-horizontal" action="<?php echo site_url('claves/remover')?>" method="post">
+      <div class="modal-body">
+        <h5></h5>
+        <div class="control-group"> 
+          <input type="hidden" name="idMateria" value="" required/>
+          <input type="hidden" name="idCarrera" value="" required/>
+          <input type="hidden" name="idFormulario" value="" required/>
+          <input type="hidden" name="idEncuesta" value="" required/>
+          <label class="control-label" for="campoCantidad">Cantidad de claves: </label>
+          <div class="controls">
+            <input class="input-xlarge" id="campoCantidad" type="number" name="cantidad" value="1" />
+            <?php echo form_error('cantidad')?>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <input class="btn btn-primary" type="submit" name="submit" value="Aceptar" />
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Cerrar</button>
+      </div>
+    </form>
+  </div>
   
   <!-- Le javascript -->
   <script src="<?php echo base_url('js/bootstrap-transition.min.js')?>"></script>
@@ -89,7 +116,7 @@
   <script src="<?php echo base_url('js/bootstrap-collapse.min.js')?>"></script>
   <script src="<?php echo base_url('js/bootstrap-dropdown.min.js')?>"></script>
   <script src="<?php echo base_url('js/bootstrap-alert.min.js')?>"></script>
-  <script src="<?php echo base_url('js/formulario.min.js')?>"></script>
+  <script src="<?php echo base_url('js/formularios.min.js')?>"></script>
   <script>
     $('.generar').click(function(){
       idMateria = $('#contenedor input[name="idMateria"]').val();
@@ -110,6 +137,21 @@
           $('#modalGenerar input[name="cantidad"]').attr('value', msg.replace(/^\s+/g,'').replace(/\s+$/g,'')); //trim
         });
         $("#modalGenerar").modal();
+      }
+      return false;
+    });
+    $('.remover').click(function(){
+      idMateria = $('#contenedor input[name="idMateria"]').val();
+      idCarrera = $('#contenedor input[name="idCarrera"]').val();
+      idFormulario = $('#contenedor input[name="idFormulario"]').val();
+      idEncuesta = $('#contenedor input[name="idEncuesta"]').val();
+      if (idMateria != '' && idCarrera != '' && idFormulario!=''&&idEncuesta!=''){
+        //cargo el id de la materia en el formulario
+        $('#modalRemover input[name="idMateria"]').val(idMateria);
+        $('#modalRemover input[name="idCarrera"]').val(idCarrera);
+        $('#modalRemover input[name="idFormulario"]').val(idFormulario);
+        $('#modalRemover input[name="idEncuesta"]').val(idEncuesta);
+        $("#modalRemover").modal();
       }
       return false;
     });
